@@ -2,4 +2,6 @@ flask
 opencv-python
 pytesseract
 pandas
-openpyxl 
+openpyxl
+requests
+easyocr 
