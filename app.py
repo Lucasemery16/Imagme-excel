@@ -9,6 +9,7 @@ import numpy as np
 import time
 import easyocr
 import re
+from PIL import Image
 
 UPLOAD_FOLDER = 'uploads'
 RESULT_FOLDER = 'results'
@@ -31,7 +32,16 @@ def ocr_space_cell(image, api_key=None):
     result = reader.readtext(image, detail=0, paragraph=True)
     return ' '.join(result).strip()
 
+def resize_image_if_needed(image_path, max_width=1000):
+    img = Image.open(image_path)
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((max_width, new_height), Image.LANCZOS)
+        img.save(image_path)
+
 def extract_table(image_path):
+    resize_image_if_needed(image_path)
     print(f"Processando imagem: {image_path}")
     img = cv2.imread(image_path, 0)
     img_bin = 255 - cv2.threshold(img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
