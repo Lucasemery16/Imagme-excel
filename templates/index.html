@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Conversor de Imagem para Excel</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: 60px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input[type="file"] { padding: 8px; }
+        button { background: #007bff; color: #fff; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .msg { color: red; text-align: center; }
+        .preview-list { list-style: none; padding: 0; margin: 10px 0; }
+        .preview-item { display: flex; align-items: center; justify-content: space-between; background: #f9f9f9; margin-bottom: 5px; padding: 5px 10px; border-radius: 4px; }
+        .remove-btn { background: #dc3545; color: #fff; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer; }
+        .remove-btn:hover { background: #a71d2a; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Converter Imagem em Excel</h1>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="msg">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
+            <label for="files">Selecione uma ou mais imagens de tabela ou números:</label>
+            <input type="file" name="files" id="files" accept="image/*" multiple required>
+            <ul class="preview-list" id="previewList"></ul>
+            <button type="submit">Converter para Excel</button>
+        </form>
+        <p style="text-align:center; margin-top:20px; color:#555;">Formatos aceitos: PNG, JPG, JPEG, BMP</p>
+    </div>
+    <script>
+        const filesInput = document.getElementById('files');
+        const previewList = document.getElementById('previewList');
+        let fileList = [];
+
+        filesInput.addEventListener('change', function(e) {
+            fileList = Array.from(filesInput.files);
+            renderPreview();
+        });
+
+        function renderPreview() {
+            previewList.innerHTML = '';
+            fileList.forEach((file, idx) => {
+                const li = document.createElement('li');
+                li.className = 'preview-item';
+                li.innerHTML = `<span>${file.name}</span> <button type="button" class="remove-btn" onclick="removeFile(${idx})">Remover</button>`;
+                previewList.appendChild(li);
+            });
+        }
+
+        window.removeFile = function(idx) {
+            fileList.splice(idx, 1);
+            updateInputFiles();
+            renderPreview();
+        }
+
+        function updateInputFiles() {
+            const dataTransfer = new DataTransfer();
+            fileList.forEach(file => dataTransfer.items.add(file));
+            filesInput.files = dataTransfer.files;
+        }
+
+        // Download automático após upload
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (fileList.length === 0) return;
+            const formData = new FormData();
+            fileList.forEach(file => formData.append('files', file));
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(async response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    const data = await response.json();
+                    alert('Erro ao processar as imagens: ' + (data.error || 'Erro desconhecido.'));
+                    throw new Error(data.error || 'Erro desconhecido.');
+                }
+            })
+            .then(blob => {
+                if (blob) {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'resultado.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
