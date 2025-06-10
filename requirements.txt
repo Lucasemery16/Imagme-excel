@@ -5,4 +5,5 @@ pandas
 openpyxl
 requests
 easyocr
-Pillow 
+Pillow
+# Pacotes necessários para o conversor de imagem em excel 
