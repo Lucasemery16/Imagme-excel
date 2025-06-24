@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Conversor TXT: ponto para vírgula</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(120deg, #f4f4f4 60%, #e3eaff 100%); margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 60px auto; background: #fff; padding: 36px 32px 28px 32px; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); }
+        h1 { text-align: center; color: #222; font-size: 2.1rem; margin-bottom: 18px; }
+        form { display: flex; flex-direction: column; gap: 18px; }
+        input[type="file"] { padding: 8px; border-radius: 6px; border: 1px solid #b3d1ff; background: #f8faff; }
+        button[type="submit"] { background: #007bff; color: #fff; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 500; margin-top: 10px; transition: background 0.2s; }
+        button[type="submit"]:hover { background: #0056b3; }
+        textarea { width: 100%; min-height: 180px; margin-top: 10px; font-size: 16px; padding: 10px; border-radius: 6px; border: 1px solid #b3d1ff; background: #f8faff; }
+        .msg { color: red; text-align: center; margin-top: 10px; }
+        .voltar { display: block; margin: 24px auto 0 auto; text-align: center; color: #6c2eb7; text-decoration: none; font-size: 1.05em; }
+        .voltar:hover { text-decoration: underline; }
+        #baixarTxt { background: #28a745; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-size: 1.05em; margin-top: 10px; cursor: pointer; font-weight: 500; }
+        #baixarTxt:hover { background: #218838; }
+        label { font-weight: 500; color: #007bff; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Converter TXT: ponto para vírgula</h1>
+        <form method="post" enctype="multipart/form-data">
+            <label for="file">Selecione um arquivo .txt:</label>
+            <input type="file" name="file" id="file" accept=".txt">
+            <label style="margin-top:10px;" for="texto">Ou cole o texto abaixo:</label>
+            <textarea name="texto" id="texto" placeholder="Cole aqui o texto para converter..."></textarea>
+            <button type="submit">Converter</button>
+        </form>
+        {% if resultado %}
+            <label for="resultado">Resultado (copie abaixo):</label>
+            <textarea id="resultado" readonly>{{ resultado }}</textarea>
+            <button id="baixarTxt" type="button">Baixar como .txt</button>
+            <script>
+                document.getElementById('baixarTxt').onclick = function() {
+                    const texto = document.getElementById('resultado').value;
+                    const blob = new Blob([texto], {type: 'text/plain'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'resultado_convertido.txt';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+            </script>
+        {% endif %}
+        <a class="voltar" href="/">&larr; Voltar para o início</a>
+    </div>
+</body>
+</html> 

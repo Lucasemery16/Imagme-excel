@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Unificar TXT</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(120deg, #f4f4f4 60%, #e3eaff 100%); margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 60px auto; background: #fff; padding: 36px 32px 28px 32px; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); }
+        h1 { text-align: center; color: #222; font-size: 2.1rem; margin-bottom: 18px; }
+        form { display: flex; flex-direction: column; gap: 18px; }
+        .file-drop { border: 2px dashed #007bff; border-radius: 8px; background: #f8faff; padding: 28px 0; text-align: center; color: #007bff; font-size: 1.1rem; cursor: pointer; transition: background 0.2s; }
+        .file-drop.dragover { background: #e3eaff; }
+        input[type="file"] { display: none; }
+        .file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 7px; }
+        .file-item { background: #f1f5ff; border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .remove-btn { background: none; border: none; color: #ff4d4d; font-size: 1.2em; cursor: pointer; font-weight: bold; margin-left: 10px; }
+        .remove-btn:hover { color: #b30000; }
+        .submit-btn { background: #007bff; color: #fff; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 500; margin-top: 10px; transition: background 0.2s; }
+        .submit-btn:hover { background: #0056b3; }
+        .msg { color: red; text-align: center; margin-top: 10px; }
+        .voltar { display: block; margin: 24px auto 0 auto; text-align: center; color: #6c2eb7; text-decoration: none; font-size: 1.05em; }
+        .voltar:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Unificar Vários Arquivos TXT</h1>
+        <form id="unificarForm" method="post" enctype="multipart/form-data">
+            <label class="file-drop" id="fileDrop">Clique ou arraste arquivos .txt aqui para adicionar</label>
+            <input type="file" id="filesInput" accept=".txt" multiple>
+            <div class="file-list" id="fileList"></div>
+            <button type="submit" class="submit-btn">Unificar e Baixar</button>
+        </form>
+        <div class="msg" id="msg"></div>
+        <a class="voltar" href="/">&larr; Voltar para o início</a>
+    </div>
+    <script>
+        const filesInput = document.getElementById('filesInput');
+        const fileDrop = document.getElementById('fileDrop');
+        const fileList = document.getElementById('fileList');
+        const unificarForm = document.getElementById('unificarForm');
+        const msg = document.getElementById('msg');
+        let filesArray = [];
+
+        // Adiciona arquivos ao clicar na área
+        fileDrop.addEventListener('click', () => filesInput.click());
+
+        // Adiciona arquivos ao selecionar
+        filesInput.addEventListener('change', (e) => {
+            addFiles(e.target.files);
+            filesInput.value = '';
+        });
+
+        // Adiciona arquivos ao arrastar
+        fileDrop.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileDrop.classList.add('dragover');
+        });
+        fileDrop.addEventListener('dragleave', (e) => {
+            fileDrop.classList.remove('dragover');
+        });
+        fileDrop.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileDrop.classList.remove('dragover');
+            addFiles(e.dataTransfer.files);
+        });
+
+        function addFiles(fileListInput) {
+            Array.from(fileListInput).forEach(file => {
+                if (file.name.endsWith('.txt') && !filesArray.some(f => f.name === file.name && f.size === file.size)) {
+                    filesArray.push(file);
+                }
+            });
+            renderFileList();
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            filesArray.forEach((file, idx) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `<span>${file.name}</span><button class='remove-btn' title='Remover' onclick='removeFile(${idx})'>&times;</button>`;
+                fileList.appendChild(div);
+            });
+        }
+
+        window.removeFile = function(idx) {
+            filesArray.splice(idx, 1);
+            renderFileList();
+        };
+
+        unificarForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (filesArray.length === 0) {
+                msg.textContent = 'Selecione pelo menos um arquivo .txt!';
+                return;
+            }
+            msg.textContent = '';
+            const formData = new FormData();
+            filesArray.forEach(f => formData.append('files', f));
+            fetch('/unificar-txt', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Erro ao unificar os arquivos.');
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'unificado.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                msg.textContent = error.message;
+            });
+        });
+    </script>
+</body>
+</html> 

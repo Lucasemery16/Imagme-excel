@@ -1,149 +1,240 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, render_template
 import os
 import pandas as pd
-from werkzeug.utils import secure_filename
 import tempfile
-import requests
-import cv2
-import numpy as np
-import time
 import easyocr
 import re
-from PIL import Image
-
-UPLOAD_FOLDER = 'uploads'
-RESULT_FOLDER = 'results'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp'}
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RESULT_FOLDER'] = RESULT_FOLDER
-
+UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULT_FOLDER, exist_ok=True)
-
 reader = easyocr.Reader(['pt', 'en'])
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@app.route('/')
+def home():
+    return render_template('home.html')
 
-def ocr_space_cell(image, api_key=None):
-    result = reader.readtext(image, detail=0, paragraph=True)
-    return ' '.join(result).strip()
-
-def resize_image_if_needed(image_path, max_width=1000):
-    img = Image.open(image_path)
-    if img.width > max_width:
-        ratio = max_width / img.width
-        new_height = int(img.height * ratio)
-        img = img.resize((max_width, new_height), Image.LANCZOS)
-        img.save(image_path)
-
-def extract_table(image_path):
-    resize_image_if_needed(image_path)
-    print(f"Processando imagem: {image_path}")
-    img = cv2.imread(image_path, 0)
-    img_bin = 255 - cv2.threshold(img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-    kernel_len = max(10, np.array(img).shape[1] // 40)
-    hor_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_len, 1))
-    hor_lines = cv2.erode(img_bin, hor_kernel, iterations=3)
-    hor_lines = cv2.dilate(hor_lines, hor_kernel, iterations=3)
-    ver_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
-    ver_lines = cv2.erode(img_bin, ver_kernel, iterations=3)
-    ver_lines = cv2.dilate(ver_lines, ver_kernel, iterations=3)
-    table_mask = cv2.addWeighted(hor_lines, 0.5, ver_lines, 0.5, 0.0)
-    table_mask = cv2.erode(~table_mask, np.ones((3,3), np.uint8), iterations=2)
-    _, table_mask = cv2.threshold(table_mask,128,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    contours, _ = cv2.findContours(table_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cells = []
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        if w > 10 and h > 10:
-            cells.append((x, y, w, h))
-    print(f"Total de células detectadas: {len(cells)}")
-    if not cells:
-        raise Exception("Nenhuma célula de tabela detectada. Verifique a qualidade da imagem.")
-    cells = sorted(cells, key=lambda b: (b[1], b[0]))
-    # Agrupamento de linhas mais robusto
-    rows = []
-    current_row = []
-    last_y = -1000
-    tolerance = 15
-    for cell in cells:
-        x, y, w, h = cell
-        if last_y == -1000 or abs(y - last_y) < tolerance:
-            current_row.append(cell)
-            last_y = y
-        else:
-            rows.append(sorted(current_row, key=lambda b: b[0]))
-            current_row = [cell]
-            last_y = y
-    if current_row:
-        rows.append(sorted(current_row, key=lambda b: b[0]))
-    table_data = []
-    img_color = cv2.imread(image_path)
-    if len(cells) == 1:
-        # Fallback: usa as coordenadas do EasyOCR para montar a tabela
-        x, y, w, h = cells[0]
-        cell_img = img_color[y:y+h, x:x+w]
-        results = reader.readtext(cell_img, detail=1, paragraph=False)
-        linhas = {}
-        for bbox, text, conf in results:
-            x_min = min([p[0] for p in bbox])
-            y_min = min([p[1] for p in bbox])
-            linha_key = int(y_min // 15)
-            if linha_key not in linhas:
-                linhas[linha_key] = []
-            linhas[linha_key].append((x_min, text))
-        for k in sorted(linhas.keys()):
-            linha = [t[1] for t in sorted(linhas[k], key=lambda x: x[0])]
-            table_data.append(linha)
-    else:
-        for row in rows:
-            row_data = []
-            for x, y, w, h in row:
-                cell_img = img_color[y:y+h, x:x+w]
-                start = time.time()
-                text = ocr_space_cell(cell_img)
-                elapsed = time.time() - start
-                print(f"OCR célula: '{text}' (tempo: {elapsed:.2f}s)")
-                row_data.append(text)
-            table_data.append(row_data)
-    return table_data
-
-def images_to_excel_table(images, excel_path):
-    # Para múltiplas imagens, empilha as tabelas verticalmente
-    all_data = []
-    for image_path in images:
-        table = extract_table(image_path)
-        all_data.extend(table)
-    df = pd.DataFrame(all_data)
-    df.to_excel(excel_path, index=False, header=False)
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        try:
-            if 'files' not in request.files:
-                return jsonify({'error': 'Nenhum arquivo enviado!'}), 400
-            files = request.files.getlist('files')
-            image_paths = []
-            for file in files:
-                if file and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    file.save(image_path)
-                    image_paths.append(image_path)
-            if not image_paths:
-                return jsonify({'error': 'Nenhum arquivo válido enviado!'}), 400
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx', dir=app.config['RESULT_FOLDER']) as tmp:
-                excel_path = tmp.name
-            images_to_excel_table(image_paths, excel_path)
-            return send_file(excel_path, as_attachment=True, download_name='resultado_tabela.xlsx')
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+@app.route('/upload', methods=['GET'])
+def upload_page():
     return render_template('index.html')
+
+@app.route('/converter-txt', methods=['GET', 'POST'])
+def converter_txt():
+    resultado = None
+    if request.method == 'POST':
+        texto = request.form.get('texto', '').strip()
+        if texto:
+            convertido = texto.replace('.', ',')
+            return render_template('converter_txt.html', resultado=convertido)
+        if 'file' not in request.files:
+            return render_template('converter_txt.html', resultado='Nenhum arquivo enviado ou texto colado!')
+        file = request.files['file']
+        if file.filename == '' or not file.filename.lower().endswith('.txt'):
+            return render_template('converter_txt.html', resultado='Arquivo não suportado! Envie um .txt')
+        conteudo = file.read().decode('utf-8')
+        convertido = conteudo.replace('.', ',')
+        return render_template('converter_txt.html', resultado=convertido)
+    return render_template('converter_txt.html', resultado=resultado)
+
+@app.route('/unificar-txt', methods=['GET', 'POST'])
+def unificar_txt():
+    if request.method == 'POST':
+        if 'files' not in request.files:
+            return 'Nenhum arquivo enviado!', 400
+        files = request.files.getlist('files')
+        conteudo_unificado = ''
+        for file in files:
+            if file and file.filename.lower().endswith('.txt'):
+                conteudo_unificado += file.read().decode('utf-8') + '\n'
+        if not conteudo_unificado.strip():
+            return 'Nenhum arquivo .txt válido enviado!', 400
+        conteudo_unificado = conteudo_unificado.replace('.', ',')
+        from io import BytesIO
+        return send_file(BytesIO(conteudo_unificado.encode('utf-8')),
+                         as_attachment=True,
+                         download_name='unificado.txt',
+                         mimetype='text/plain')
+    return render_template('unificar_txt.html')
+
+def corrigir_percentuais(texto):
+    # Corrige casos de '3' no final de números para '%'
+    texto = re.sub(r'(\d)3(?!\d)', r'\1%', texto)  # Ex: 1.0523 -> 1.052%
+    texto = re.sub(r'(\d)\*', r'\1%', texto)       # Ex: 1.052* -> 1.052%
+    texto = texto.replace(':', '%')
+    return texto
+
+def dividir_celula(celula):
+    # Tenta dividir células grandes em várias colunas (números seguidos de % ou números)
+    partes = re.findall(r'\d+[\.,]?\d*%?|[A-Za-zÀ-ÿ\-\/]+', celula)
+    return [p for p in partes if p.strip()]
+
+def corrigir_tabela(tabela):
+    cabecalho = tabela[0]
+    colunas = len(cabecalho)
+    nova_tabela = [cabecalho]
+    buffer_nome = ""
+    for linha in tabela[1:]:
+        linha_corrigida = []
+        for cell in linha:
+            cell = corrigir_percentuais(str(cell))
+            partes = dividir_celula(cell)
+            linha_corrigida.extend(partes)
+        # Junta linhas de nomes
+        if len(linha_corrigida) < colunas:
+            buffer_nome += " " + " ".join(linha_corrigida)
+        else:
+            if buffer_nome:
+                linha_corrigida[0] = buffer_nome.strip() + " " + linha_corrigida[0]
+                buffer_nome = ""
+            # Garante o número de colunas
+            while len(linha_corrigida) < colunas:
+                linha_corrigida.append("")
+            while len(linha_corrigida) > colunas:
+                linha_corrigida[-2] += " " + linha_corrigida[-1]
+                linha_corrigida.pop()
+            nova_tabela.append(linha_corrigida)
+    return nova_tabela
+
+@app.route('/imagem-para-json', methods=['POST'])
+def imagem_para_json():
+    if 'file' not in request.files:
+        return jsonify({'error': 'Nenhuma imagem enviada!'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Arquivo vazio!'}), 400
+    path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(path)
+    result = reader.readtext(path, detail=1, paragraph=False)
+    linhas = {}
+    for bbox, texto, conf in result:
+        y = int((bbox[0][1] + bbox[2][1]) / 2)
+        linha_encontrada = False
+        for key in linhas:
+            if abs(key - y) < 15:
+                linhas[key].append((bbox, texto))
+                linha_encontrada = True
+                break
+        if not linha_encontrada:
+            linhas[y] = [(bbox, texto)]
+    tabela = []
+    for key in sorted(linhas.keys()):
+        linha = sorted(linhas[key], key=lambda x: x[0][0][0])
+        tabela.append([t[1] for t in linha])
+    tabela_corrigida = corrigir_tabela(tabela)
+    return jsonify({'tabela': tabela_corrigida})
+
+@app.route('/json-para-excel', methods=['POST'])
+def json_para_excel():
+    data = request.get_json()
+    if not data or 'tabela' not in data:
+        return jsonify({'error': 'JSON inválido!'}), 400
+    tabela = data['tabela']
+    df = pd.DataFrame(tabela)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+        excel_path = tmp.name
+    df.to_excel(excel_path, index=False, header=False)
+    return send_file(excel_path, as_attachment=True, download_name='resultado_tabela.xlsx')
+
+@app.route('/converter', methods=['GET'])
+def converter_page():
+    return render_template('converter.html')
+
+def txt_para_tabela(txt):
+    linhas = [l.strip() for l in txt.splitlines() if l.strip()]
+    # Detecta o cabeçalho (primeira linha com mais de 3 colunas ou que contenha 'VaR' e 'Vol')
+    for i, linha in enumerate(linhas):
+        if ('VaR' in linha and 'Vol' in linha) or len(re.split(r'\s{2,}|\t|;', linha)) >= 4:
+            header = re.split(r'\s{2,}|\t|;', linha)
+            header_idx = i
+            break
+    else:
+        return [], []
+    dados = []
+    buffer_nome = ""
+    for linha in linhas[header_idx+1:]:
+        partes = re.split(r'\s{2,}|\t|;', linha)
+        # Se a linha tem menos colunas, provavelmente é parte do nome
+        if len(partes) < len(header):
+            buffer_nome += " " + " ".join(partes)
+        else:
+            if buffer_nome:
+                partes[0] = buffer_nome.strip() + " " + partes[0]
+                buffer_nome = ""
+            # Garante o número de colunas
+            while len(partes) < len(header):
+                partes.append("")
+            while len(partes) > len(header):
+                partes[-2] += " " + partes[-1]
+                partes.pop()
+            dados.append(partes)
+    return header, dados
+
+@app.route('/txt-para-excel', methods=['POST'])
+def txt_para_excel():
+    if 'file' not in request.files:
+        return jsonify({'error': 'Nenhum arquivo enviado!'}), 400
+    file = request.files['file']
+    if file.filename == '' or not file.filename.lower().endswith('.txt'):
+        return jsonify({'error': 'Arquivo não suportado! Envie um .txt'}), 400
+    conteudo = file.read().decode('utf-8')
+    # Processa o TXT para montar a tabela estruturada
+    header, dados = txt_para_tabela(conteudo)
+    if not header or not dados:
+        return jsonify({'error': 'Não foi possível identificar a tabela no TXT.'}), 400
+    import pandas as pd
+    import tempfile
+    df = pd.DataFrame(dados, columns=header)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+        excel_path = tmp.name
+    df.to_excel(excel_path, index=False)
+    return send_file(excel_path, as_attachment=True, download_name='resultado_txt.xlsx')
+
+@app.route('/txt-para-excel', methods=['GET'])
+def txt_para_excel_page():
+    return render_template('txt_para_excel.html')
+
+def corrigir_percentuais_txt(linhas):
+    novas_linhas = []
+    for linha in linhas:
+        partes = linha.split()
+        nova_linha = []
+        for parte in partes:
+            # Corrige símbolos comuns no final
+            parte_corrigida = re.sub(r'([\d,\.])[*:3]$', r'\1%', parte)
+            # Se parece um percentual mas não termina com %, adiciona
+            if re.match(r'^[\d,\.]+$', parte_corrigida) and len(parte_corrigida) > 1 and not parte_corrigida.endswith('%'):
+                # Heurística: se valor entre 0 e 100, pode ser percentual
+                try:
+                    valor = float(parte_corrigida.replace(',', '.'))
+                    if 0 <= valor <= 100:
+                        parte_corrigida += '%'
+                except:
+                    pass
+            nova_linha.append(parte_corrigida)
+        novas_linhas.append(' '.join(nova_linha))
+    return novas_linhas
+
+@app.route('/imagem-para-txt', methods=['POST'])
+def imagem_para_txt():
+    if 'file' not in request.files:
+        return jsonify({'error': 'Nenhuma imagem enviada!'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Arquivo vazio!'}), 400
+    path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(path)
+    result = reader.readtext(path, detail=0, paragraph=True)
+    linhas_corrigidas = corrigir_percentuais_txt(result)
+    texto = '\n'.join(linhas_corrigidas)
+    from io import BytesIO
+    return send_file(BytesIO(texto.encode('utf-8')),
+                     as_attachment=True,
+                     download_name='resultado_imagem.txt',
+                     mimetype='text/plain')
+
+@app.route('/imagem-para-txt', methods=['GET'])
+def imagem_para_txt_page():
+    return render_template('imagem_para_txt.html')
 
 if __name__ == '__main__':
     app.run(debug=True) 

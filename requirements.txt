@@ -3,7 +3,5 @@ opencv-python
 pytesseract
 pandas
 openpyxl
-requests
-easyocr
-Pillow
-# Pacotes necessários para o conversor de imagem em excel 
+paddleocr
+paddlepaddle 

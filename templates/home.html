@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Conversores</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(120deg, #f4f4f4 60%, #e3eaff 100%); margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 60px auto; background: #fff; padding: 36px 32px 28px 32px; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); }
+        h1 { text-align: center; color: #222; font-size: 2.1rem; margin-bottom: 18px; }
+        .conversores { display: flex; flex-direction: column; gap: 25px; margin-top: 30px; }
+        .conv-box { background: #f8faff; border-radius: 10px; padding: 22px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); display: flex; flex-direction: column; align-items: flex-start; }
+        .conv-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #007bff; }
+        .conv-desc { color: #555; margin-bottom: 15px; }
+        .conv-btn { background: #007bff; color: #fff; border: none; padding: 10px 22px; border-radius: 6px; cursor: pointer; font-size: 16px; text-decoration: none; display: inline-block; font-weight: 500; transition: background 0.2s; }
+        .conv-btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Conversores</h1>
+        <div class="conversores">
+            <div class="conv-box">
+                <div class="conv-title">Converter Imagem em Excel</div>
+                <div class="conv-desc">Selecione uma ou mais imagens de tabela ou números e gere uma planilha Excel automaticamente.</div>
+                <a class="conv-btn" href="/upload">Acessar conversor de imagem</a>
+            </div>
+            <div class="conv-box">
+                <div class="conv-title">Converter TXT: ponto para vírgula</div>
+                <div class="conv-desc">Envie um arquivo .txt ou cole texto e converta todos os pontos em vírgulas. O resultado será exibido para copiar ou baixar.</div>
+                <a class="conv-btn" href="/converter-txt">Acessar conversor de TXT</a>
+            </div>
+            <div class="conv-box">
+                <div class="conv-title">Unificar TXT</div>
+                <div class="conv-desc">Selecione vários arquivos .txt e gere um único arquivo unificado (com vírgulas) para download.</div>
+                <a class="conv-btn" href="/unificar-txt">Acessar unificador de TXT</a>
+            </div>
+            <div class="conv-box">
+                <div class="conv-title">Converter TXT em Excel</div>
+                <div class="conv-desc">Envie um arquivo .txt (separado por tabulação, ponto e vírgula ou vírgula) e gere uma planilha Excel automaticamente.</div>
+                <a class="conv-btn" href="/txt-para-excel">Acessar conversor TXT → Excel</a>
+            </div>
+            <div class="conv-box">
+                <div class="conv-title">Converter Imagem em JSON/Excel</div>
+                <div class="conv-desc">Extraia a tabela de uma imagem para JSON, revise/edite e depois gere o Excel.</div>
+                <a class="conv-btn" href="/converter">Acessar conversor imagem → JSON → Excel</a>
+            </div>
+            <div class="conv-box">
+                <div class="conv-title">Converter Imagem em TXT</div>
+                <div class="conv-desc">Extraia o texto de uma imagem e baixe como arquivo .txt para revisão ou uso posterior.</div>
+                <a class="conv-btn" href="/imagem-para-txt">Acessar conversor Imagem → TXT</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

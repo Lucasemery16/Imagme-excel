@@ -2,100 +2,106 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Conversor de Imagem para Excel</title>
+    <title>Converter Imagem em Excel</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 500px; margin: 60px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #333; }
-        form { display: flex; flex-direction: column; gap: 15px; }
-        input[type="file"] { padding: 8px; }
-        button { background: #007bff; color: #fff; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #0056b3; }
-        .msg { color: red; text-align: center; }
-        .preview-list { list-style: none; padding: 0; margin: 10px 0; }
-        .preview-item { display: flex; align-items: center; justify-content: space-between; background: #f9f9f9; margin-bottom: 5px; padding: 5px 10px; border-radius: 4px; }
-        .remove-btn { background: #dc3545; color: #fff; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer; }
-        .remove-btn:hover { background: #a71d2a; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(120deg, #f4f4f4 60%, #e3eaff 100%); margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 60px auto; background: #fff; padding: 36px 32px 28px 32px; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); }
+        h1 { text-align: center; color: #222; font-size: 2.1rem; margin-bottom: 18px; }
+        form { display: flex; flex-direction: column; gap: 18px; }
+        input[type="file"] { padding: 8px; border-radius: 6px; border: 1px solid #b3d1ff; background: #f8faff; }
+        .preview-list { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; }
+        .preview-item { position: relative; width: 120px; }
+        .preview-item img { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; border: 1px solid #b3d1ff; }
+        .remove-btn { position: absolute; top: 2px; right: 2px; background: #ff4d4d; color: #fff; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-weight: bold; }
+        .remove-btn:hover { background: #b30000; }
+        .download-link { display: none; margin-top: 20px; text-align: center; }
+        .download-link a { background: #28a745; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: 500; }
+        .download-link a:hover { background: #218838; }
+        .msg { color: red; text-align: center; margin-top: 10px; }
+        .voltar { display: block; margin: 24px auto 0 auto; text-align: center; color: #6c2eb7; text-decoration: none; font-size: 1.05em; }
+        .voltar:hover { text-decoration: underline; }
+        button[type="submit"] { background: #007bff; color: #fff; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 500; margin-top: 10px; transition: background 0.2s; }
+        button[type="submit"]:hover { background: #0056b3; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Converter Imagem em Excel</h1>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <div class="msg">{{ messages[0] }}</div>
-          {% endif %}
-        {% endwith %}
-        <form id="uploadForm" method="post" enctype="multipart/form-data">
-            <label for="files">Selecione uma ou mais imagens de tabela ou números:</label>
+        <form id="uploadForm" method="post" action="/" enctype="multipart/form-data">
+            <label for="files">Selecione uma ou mais imagens:</label>
             <input type="file" name="files" id="files" accept="image/*" multiple required>
-            <ul class="preview-list" id="previewList"></ul>
+            <div class="preview-list" id="previewList"></div>
             <button type="submit">Converter para Excel</button>
         </form>
-        <p style="text-align:center; margin-top:20px; color:#555;">Formatos aceitos: PNG, JPG, JPEG, BMP</p>
+        <div class="download-link" id="downloadLink">
+            <a id="downloadExcel" href="#" download>Baixar Excel</a>
+        </div>
+        <div class="msg" id="msg"></div>
+        <a class="voltar" href="/">&larr; Voltar para o início</a>
     </div>
     <script>
         const filesInput = document.getElementById('files');
         const previewList = document.getElementById('previewList');
-        let fileList = [];
+        const uploadForm = document.getElementById('uploadForm');
+        const downloadLink = document.getElementById('downloadLink');
+        const downloadExcel = document.getElementById('downloadExcel');
+        const msg = document.getElementById('msg');
+        let filesArray = [];
 
         filesInput.addEventListener('change', function(e) {
-            fileList = Array.from(filesInput.files);
-            renderPreview();
+            filesArray = Array.from(e.target.files);
+            renderPreviews();
         });
 
-        function renderPreview() {
+        function renderPreviews() {
             previewList.innerHTML = '';
-            fileList.forEach((file, idx) => {
-                const li = document.createElement('li');
-                li.className = 'preview-item';
-                li.innerHTML = `<span>${file.name}</span> <button type="button" class="remove-btn" onclick="removeFile(${idx})">Remover</button>`;
-                previewList.appendChild(li);
+            filesArray.forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const div = document.createElement('div');
+                    div.className = 'preview-item';
+                    div.innerHTML = `<img src="${ev.target.result}" alt="preview"><button class='remove-btn' title='Remover' onclick='removeFile(${idx})'>&times;</button>`;
+                    previewList.appendChild(div);
+                };
+                reader.readAsDataURL(file);
             });
         }
 
         window.removeFile = function(idx) {
-            fileList.splice(idx, 1);
-            updateInputFiles();
-            renderPreview();
-        }
+            filesArray.splice(idx, 1);
+            renderPreviews();
+            filesInput.value = '';
+        };
 
-        function updateInputFiles() {
-            const dataTransfer = new DataTransfer();
-            fileList.forEach(file => dataTransfer.items.add(file));
-            filesInput.files = dataTransfer.files;
-        }
-
-        // Download automático após upload
-        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        uploadForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (fileList.length === 0) return;
+            if (filesArray.length === 0) {
+                msg.textContent = 'Selecione pelo menos uma imagem!';
+                return;
+            }
+            msg.textContent = '';
             const formData = new FormData();
-            fileList.forEach(file => formData.append('files', file));
+            filesArray.forEach(f => formData.append('files', f));
             fetch('/', {
                 method: 'POST',
                 body: formData
             })
             .then(async response => {
-                if (response.ok) {
-                    return response.blob();
-                } else {
+                if (!response.ok) {
                     const data = await response.json();
-                    alert('Erro ao processar as imagens: ' + (data.error || 'Erro desconhecido.'));
-                    throw new Error(data.error || 'Erro desconhecido.');
+                    throw new Error(data.error || 'Erro ao processar.');
                 }
+                return response.blob();
             })
             .then(blob => {
-                if (blob) {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'resultado.xlsx';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url);
-                }
+                const url = window.URL.createObjectURL(blob);
+                downloadExcel.href = url;
+                downloadExcel.download = 'resultado_tabela.xlsx';
+                downloadLink.style.display = 'block';
+                downloadExcel.click(); // Download automático
+            })
+            .catch(error => {
+                msg.textContent = error.message;
             });
         });
     </script>
