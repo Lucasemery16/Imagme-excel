@@ -14,7 +14,7 @@ Sistema simples para conversão e unificação de arquivos de texto (.txt).
 - Converte pontos em vírgulas automaticamente
 - Gera arquivo unificado para download
 
-## Instalação
+## Instalação Local
 
 1. **Clone o repositório:**
 ```bash
@@ -33,7 +33,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Execução
+## Execução Local
 
 1. **Ative o ambiente virtual:**
 ```bash
@@ -49,6 +49,32 @@ python app.py
 ```
 http://localhost:5000
 ```
+
+## Deploy no Render
+
+O projeto está configurado para deploy automático no Render:
+
+1. **Conecte seu repositório ao Render:**
+   - Acesse [render.com](https://render.com)
+   - Crie uma nova conta ou faça login
+   - Clique em "New +" e selecione "Web Service"
+   - Conecte seu repositório GitHub
+
+2. **Configure o serviço:**
+   - **Name**: `conversor-txt` (ou qualquer nome)
+   - **Environment**: `Python`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python app.py`
+   - **Python Version**: `3.13.4`
+
+3. **Deploy automático:**
+   - O Render detectará automaticamente as configurações
+   - Cada push para o branch `main` fará deploy automático
+   - O serviço estará disponível em `https://seu-app.onrender.com`
+
+### Configuração Automática
+
+O arquivo `render.yaml` já está configurado para deploy automático. O Render usará essas configurações automaticamente.
 
 ## Estrutura do Projeto
 
