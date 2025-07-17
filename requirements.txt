@@ -1,7 +1,1 @@
-flask
-opencv-python
-pytesseract
-pandas
-openpyxl
-paddleocr
-paddlepaddle 
+flask 
